@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.27.1.19265",
-      "templateHash": "13220851086269118310"
+      "templateHash": "13714363381405471779"
     }
   },
   "parameters": {
@@ -14,7 +14,20 @@
       "defaultValue": "[resourceGroup().location]"
     },
     "targetSubnetName": {
-      "type": "string"
+      "type": "string",
+      "defaultValue": "TargetSubnet"
+    },
+    "bastionHostName": {
+      "type": "string",
+      "defaultValue": "bastionHost"
+    },
+    "bastionSubnetName": {
+      "type": "string",
+      "defaultValue": "AzureBastionSubnet"
+    },
+    "vnetName": {
+      "type": "string",
+      "defaultValue": "vnetMain"
     },
     "adminPasswordVM1": {
       "type": "securestring"
@@ -48,7 +61,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.27.1.19265",
-              "templateHash": "13892540756808206416"
+              "templateHash": "14233009659059035374"
             }
           },
           "parameters": {
@@ -137,19 +150,21 @@
                   {
                     "name": "AllowHttpsInbound",
                     "properties": {
+                      "description": "Allow HTTPS traffic to Azure bastion",
                       "access": "Allow",
                       "destinationAddressPrefix": "*",
                       "destinationPortRange": "443",
                       "direction": "Inbound",
-                      "priority": 100,
+                      "priority": 120,
                       "protocol": "Tcp",
-                      "sourceAddressPrefix": "*",
+                      "sourceAddressPrefix": "Internet",
                       "sourcePortRange": "*"
                     }
                   },
                   {
                     "name": "AllowBastionCommunicationInbound",
                     "properties": {
+                      "description": "Allow bastion components to communicate",
                       "access": "Allow",
                       "destinationAddressPrefix": "VirtualNetwork",
                       "destinationPortRanges": [
@@ -157,15 +172,44 @@
                         "8080"
                       ],
                       "direction": "Inbound",
-                      "priority": 110,
+                      "priority": 150,
                       "protocol": "*",
                       "sourceAddressPrefix": "VirtualNetwork",
                       "sourcePortRange": "*"
                     }
                   },
                   {
+                    "name": "AllowGatewayManagerInbound",
+                    "properties": {
+                      "description": "Gateway manager communication with bastion",
+                      "access": "Allow",
+                      "destinationAddressPrefix": "*",
+                      "destinationPortRange": "443",
+                      "direction": "Inbound",
+                      "priority": 130,
+                      "protocol": "Tcp",
+                      "sourceAddressPrefix": "GatewayManager",
+                      "sourcePortRange": "*"
+                    }
+                  },
+                  {
+                    "name": "AllowLoadBalancerInbound",
+                    "properties": {
+                      "description": "Allow load balancer to communicate with bastion",
+                      "access": "Allow",
+                      "destinationAddressPrefix": "*",
+                      "destinationPortRange": "443",
+                      "direction": "Inbound",
+                      "priority": 4095,
+                      "protocol": "Tcp",
+                      "sourceAddressPrefix": "AzureLoadBalancer",
+                      "sourcePortRange": "*"
+                    }
+                  },
+                  {
                     "name": "AllowSshRdpOutbound",
                     "properties": {
+                      "description": "Allow traffic to target subnet through SSH and RDP",
                       "access": "Allow",
                       "destinationAddressPrefix": "VirtualNetwork",
                       "destinationPortRanges": [
@@ -173,7 +217,7 @@
                         "3389"
                       ],
                       "direction": "Outbound",
-                      "priority": 120,
+                      "priority": 100,
                       "protocol": "*",
                       "sourceAddressPrefix": "*",
                       "sourcePortRange": "*"
@@ -182,6 +226,7 @@
                   {
                     "name": "AllowBastionCommunicationOutbound",
                     "properties": {
+                      "description": "Allow bastion components to communicate",
                       "access": "Allow",
                       "destinationAddressPrefix": "VirtualNetwork",
                       "destinationPortRanges": [
@@ -189,9 +234,65 @@
                         "8080"
                       ],
                       "direction": "Outbound",
-                      "priority": 130,
+                      "priority": 120,
                       "protocol": "*",
                       "sourceAddressPrefix": "VirtualNetwork",
+                      "sourcePortRange": "*"
+                    }
+                  },
+                  {
+                    "name": "AllowAzureCloudOutbound",
+                    "properties": {
+                      "description": "Allow connecting to endpoints for storing diagnostics logs etc",
+                      "access": "Allow",
+                      "destinationAddressPrefix": "AzureCloud",
+                      "destinationPortRange": "443",
+                      "direction": "Outbound",
+                      "priority": 110,
+                      "protocol": "Tcp",
+                      "sourceAddressPrefix": "*",
+                      "sourcePortRange": "*"
+                    }
+                  },
+                  {
+                    "name": "AllowGetSessionInformationOutbound",
+                    "properties": {
+                      "description": "Allow getting session information for metrics and diagnostics",
+                      "access": "Allow",
+                      "destinationAddressPrefix": "Internet",
+                      "destinationPortRange": "80",
+                      "direction": "Outbound",
+                      "priority": 130,
+                      "protocol": "Tcp",
+                      "sourceAddressPrefix": "*",
+                      "sourcePortRange": "*"
+                    }
+                  },
+                  {
+                    "name": "DenyAllInbound",
+                    "properties": {
+                      "description": "Deny all inbound traffic",
+                      "access": "Deny",
+                      "destinationAddressPrefix": "*",
+                      "destinationPortRange": "*",
+                      "direction": "Inbound",
+                      "priority": 4096,
+                      "protocol": "*",
+                      "sourceAddressPrefix": "*",
+                      "sourcePortRange": "*"
+                    }
+                  },
+                  {
+                    "name": "DenyAllOutbound",
+                    "properties": {
+                      "description": "Deny all outbound traffic",
+                      "access": "Deny",
+                      "destinationAddressPrefix": "*",
+                      "destinationPortRange": "*",
+                      "direction": "Outbound",
+                      "priority": 160,
+                      "protocol": "*",
+                      "sourceAddressPrefix": "*",
                       "sourcePortRange": "*"
                     }
                   }
@@ -206,29 +307,60 @@
               "properties": {
                 "securityRules": [
                   {
-                    "name": "AllowRdp",
+                    "name": "AllowSshRdpInbound",
                     "properties": {
-                      "description": "Allow traffic from AzureBastionSubnet through RDP",
+                      "description": "Allow traffic from AzureBastionSubnet through SSH and RDP",
                       "access": "Allow",
-                      "destinationAddressPrefix": "[parameters('bastionSubnetPrefix')]",
-                      "destinationPortRange": "3389",
+                      "destinationAddressPrefix": "*",
+                      "destinationPortRanges": [
+                        "22",
+                        "3389"
+                      ],
                       "direction": "Inbound",
                       "priority": 100,
+                      "protocol": "*",
+                      "sourceAddressPrefix": "[parameters('bastionSubnetPrefix')]",
+                      "sourcePortRange": "*"
+                    }
+                  },
+                  {
+                    "name": "AllowLoadBalancerInbound",
+                    "properties": {
+                      "description": "Allow load balancer to communicate with target subnet",
+                      "access": "Allow",
+                      "destinationAddressPrefix": "*",
+                      "destinationPortRange": "443",
+                      "direction": "Inbound",
+                      "priority": 4095,
                       "protocol": "Tcp",
+                      "sourceAddressPrefix": "AzureLoadBalancer",
+                      "sourcePortRange": "*"
+                    }
+                  },
+                  {
+                    "name": "DenyAllInbound",
+                    "properties": {
+                      "description": "Deny all inbound traffic",
+                      "access": "Deny",
+                      "destinationAddressPrefix": "*",
+                      "destinationPortRange": "*",
+                      "direction": "Inbound",
+                      "priority": 4096,
+                      "protocol": "*",
                       "sourceAddressPrefix": "*",
                       "sourcePortRange": "*"
                     }
                   },
                   {
-                    "name": "AllowSsh",
+                    "name": "DenyAllOutbound",
                     "properties": {
-                      "description": "Allow traffic from AzureBastionSubnet through SSH",
-                      "access": "Allow",
-                      "destinationAddressPrefix": "[parameters('bastionSubnetPrefix')]",
-                      "destinationPortRange": "22",
-                      "direction": "Inbound",
-                      "priority": 110,
-                      "protocol": "Tcp",
+                      "description": "Deny all outbound traffic",
+                      "access": "Deny",
+                      "destinationAddressPrefix": "*",
+                      "destinationPortRange": "*",
+                      "direction": "Outbound",
+                      "priority": 160,
+                      "protocol": "*",
                       "sourceAddressPrefix": "*",
                       "sourcePortRange": "*"
                     }
@@ -260,13 +392,13 @@
             "value": "[parameters('location')]"
           },
           "bastionHostName": {
-            "value": "bastionHost"
+            "value": "[parameters('bastionHostName')]"
           },
           "bastionSubnetName": {
-            "value": "AzureBastionSubnet"
+            "value": "[parameters('bastionSubnetName')]"
           },
           "vnetName": {
-            "value": "vnetMain"
+            "value": "[parameters('vnetName')]"
           }
         },
         "template": {
@@ -375,7 +507,7 @@
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnetDeployment'), '2022-09-01').outputs.vnetMainId.value]"
           },
           "targetSubnetName": {
-            "value": "TargetSubnet"
+            "value": "[parameters('targetSubnetName')]"
           }
         },
         "template": {
@@ -522,7 +654,7 @@
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnetDeployment'), '2022-09-01').outputs.vnetMainId.value]"
           },
           "targetSubnetName": {
-            "value": "TargetSubnet"
+            "value": "[parameters('targetSubnetName')]"
           }
         },
         "template": {
