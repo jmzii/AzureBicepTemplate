@@ -64,7 +64,7 @@ resource bastionNSG 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
           destinationAddressPrefix: '*'
           destinationPortRange: '443'
           direction: 'Inbound'
-          priority: 100
+          priority: 120
           protocol: 'Tcp'
           sourceAddressPrefix: 'Internet'
           sourcePortRange: '*'
@@ -81,7 +81,7 @@ resource bastionNSG 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
             '8080'
           ]
           direction: 'Inbound'
-          priority: 110
+          priority: 150
           protocol: '*'
           sourceAddressPrefix: 'VirtualNetwork'
           sourcePortRange: '*'
@@ -95,9 +95,23 @@ resource bastionNSG 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
           destinationAddressPrefix: '*'
           destinationPortRange: '443'
           direction: 'Inbound'
-          priority: 120
+          priority: 130
           protocol: 'Tcp'
           sourceAddressPrefix: 'GatewayManager'
+          sourcePortRange: '*'
+        }
+      }
+      {
+        name: 'AllowLoadBalancerInbound'
+        properties: {
+          description: 'Allow load balancer to communicate with bastion'
+          access: 'Allow'
+          destinationAddressPrefix: '*'
+          destinationPortRange: '443'
+          direction: 'Inbound'
+          priority: 4095
+          protocol: 'Tcp'
+          sourceAddressPrefix: 'AzureLoadBalancer'
           sourcePortRange: '*'
         }
       }
@@ -112,7 +126,7 @@ resource bastionNSG 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
             '3389'
           ]
           direction: 'Outbound'
-          priority: 130
+          priority: 100
           protocol: '*'
           sourceAddressPrefix: '*'
           sourcePortRange: '*'
@@ -129,7 +143,7 @@ resource bastionNSG 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
             '8080'
           ]
           direction: 'Outbound'
-          priority: 140
+          priority: 120
           protocol: '*'
           sourceAddressPrefix: 'VirtualNetwork'
           sourcePortRange: '*'
@@ -143,8 +157,50 @@ resource bastionNSG 'Microsoft.Network/networkSecurityGroups@2022-11-01' = {
           destinationAddressPrefix: 'AzureCloud'
           destinationPortRange: '443'
           direction: 'Outbound'
-          priority: 150
-          protocol: 'TCP'
+          priority: 110
+          protocol: 'Tcp'
+          sourceAddressPrefix: '*'
+          sourcePortRange: '*'
+        }
+      }
+      {
+        name: 'AllowGetSessionInformationOutbound'
+        properties: {
+          description: 'Allow getting session information for metrics and diagnostics'
+          access: 'Allow'
+          destinationAddressPrefix: 'Internet'
+          destinationPortRange: '80'
+          direction: 'Outbound'
+          priority: 130
+          protocol: 'Tcp'
+          sourceAddressPrefix: '*'
+          sourcePortRange: '*'
+        }
+      }
+      {
+        name: 'DenyAllInbound'
+        properties: {
+          description: 'Deny all inbound traffic'
+          access: 'Deny'
+          destinationAddressPrefix: '*'
+          destinationPortRange: '*'
+          direction: 'Inbound'
+          priority: 4096
+          protocol: '*'
+          sourceAddressPrefix: '*'
+          sourcePortRange: '*'
+        }
+      }
+      {
+        name: 'DenyAllOutbound'
+        properties: {
+          description: 'Deny all outbound traffic'
+          access: 'Deny'
+          destinationAddressPrefix: '*'
+          destinationPortRange: '*'
+          direction: 'Outbound'
+          priority: 160
+          protocol: '*'
           sourceAddressPrefix: '*'
           sourcePortRange: '*'
         }
@@ -160,17 +216,59 @@ resource targetNSG 'Microsoft.Network/networkSecurityGroups@2023-04-01' = {
   properties: {
     securityRules: [
       {
-        name: 'AllowSshRdpOutbound'
+        name: 'AllowSshRdpInbound'
         properties: {
           description: 'Allow traffic from AzureBastionSubnet through SSH and RDP'
           access: 'Allow'
-          destinationAddressPrefix: bastionSubnetPrefix
+          destinationAddressPrefix: '*'
           destinationPortRanges: [
             '22'
             '3389'
           ]
           direction: 'Inbound'
           priority: 100
+          protocol: '*'
+          sourceAddressPrefix: bastionSubnetPrefix
+          sourcePortRange: '*'
+        }
+      }
+      {
+        name: 'AllowLoadBalancerInbound'
+        properties: {
+          description: 'Allow load balancer to communicate with target subnet'
+          access: 'Allow'
+          destinationAddressPrefix: '*'
+          destinationPortRange: '443'
+          direction: 'Inbound'
+          priority: 4095
+          protocol: 'Tcp'
+          sourceAddressPrefix: 'AzureLoadBalancer'
+          sourcePortRange: '*'
+        }
+      }
+      {
+        name: 'DenyAllInbound'
+        properties: {
+          description: 'Deny all inbound traffic'
+          access: 'Deny'
+          destinationAddressPrefix: '*'
+          destinationPortRange: '*'
+          direction: 'Inbound'
+          priority: 4096
+          protocol: '*'
+          sourceAddressPrefix: '*'
+          sourcePortRange: '*'
+        }
+      }
+      {
+        name: 'DenyAllOutbound'
+        properties: {
+          description: 'Deny all outbound traffic'
+          access: 'Deny'
+          destinationAddressPrefix: '*'
+          destinationPortRange: '*'
+          direction: 'Outbound'
+          priority: 160
           protocol: '*'
           sourceAddressPrefix: '*'
           sourcePortRange: '*'
