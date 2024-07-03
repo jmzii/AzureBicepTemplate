@@ -2,7 +2,13 @@ targetScope = 'resourceGroup'
 
 param location string = resourceGroup().location
 
-param targetSubnetName string
+param targetSubnetName string = 'TargetSubnet'
+
+param bastionHostName string = 'bastionHost'
+
+param bastionSubnetName string = 'AzureBastionSubnet'
+
+param vnetName string = 'vnetMain'
 
 @secure()
 param adminPasswordVM1 string
@@ -23,9 +29,9 @@ module bastion './modules/bastion.bicep' = {
   name: 'bastionDeployment'
   params: {
     location: location
-    bastionHostName: 'bastionHost'
-    bastionSubnetName: 'AzureBastionSubnet'
-    vnetName: 'vnetMain'
+    bastionHostName: bastionHostName
+    bastionSubnetName: bastionSubnetName
+    vnetName: vnetName
   }
   dependsOn: [
     vnet
@@ -38,7 +44,7 @@ module vm1 './modules/vm1.bicep' = {
     adminPassword: adminPasswordVM1
     location: location
     vnetId: vnet.outputs.vnetMainId
-    targetSubnetName: 'TargetSubnet'
+    targetSubnetName: targetSubnetName
   }
   dependsOn: [
     vnet
@@ -51,7 +57,7 @@ module vm2 './modules/vm2.bicep' = {
     adminPassword: adminPasswordVM2
     location: location
     vnetId: vnet.outputs.vnetMainId
-    targetSubnetName: 'TargetSubnet'
+    targetSubnetName: targetSubnetName
   }
   dependsOn: [
     vnet
